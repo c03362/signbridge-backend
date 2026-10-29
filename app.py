@@ -1,39 +1,149 @@
+
 import os
+from pathlib import Path
+from typing import Any
+
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
 
 load_dotenv()
-app = FastAPI(title="SignBridge optional model gateway", version="2.0.0")
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
-MODEL_API_URL = os.getenv("MODEL_API_URL", "").strip()
-MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
-MAX_CLIP_BYTES = int(os.getenv("MAX_CLIP_BYTES", str(25 * 1024 * 1024)))
-app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in FRONTEND_ORIGIN.split(",") if x.strip()], allow_credentials=False, allow_methods=["GET","POST","OPTIONS"], allow_headers=["*"])
+
+BASE_DIR = Path(__file__).resolve().parent
+PUBLIC_DIR = BASE_DIR / "public"
+
+app = FastAPI(title="SignBridge API")
+
+origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGIN", "").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins or ["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    language: str = Field(default="English", max_length=80)
+
+
+class TranslationRequest(BaseModel):
+    language: str = Field(default="auto", max_length=30)
+    frames: list[list[float]] = Field(min_length=1, max_length=120)
+
 
 @app.get("/api/health")
-def health():
-    return {"status":"ok","translation_model_configured":bool(MODEL_API_URL),"note":"The browser gesture model is separate from this optional sentence-translation gateway."}
+async def health():
+    return {
+        "status": "ok",
+        "chat_configured": bool(os.getenv("OPENAI_API_KEY")),
+        "translation_configured": bool(os.getenv("MODEL_API_URL")),
+    }
+
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    api_key = os.getenv("OPENAI_API_KEY")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Chatbot is not configured yet. Add OPENAI_API_KEY in Render."
+        )
+
+    try:
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.responses.create(
+            model=model,
+            instructions=(
+                "You are SignBridge, a friendly and accessible assistant. "
+                "Help users understand sign languages and communication access. "
+                "Reply in the requested language when practical. "
+                "Do not claim that text alone is a verified sign-language translation."
+            ),
+            input=(
+                f"Preferred reply language: {request.language}\n"
+                f"User message: {request.message}"
+            ),
+        )
+        return {"reply": response.output_text}
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="The chatbot request failed. Check the Render logs and API configuration."
+        )
+
 
 @app.post("/api/translate")
-async def translate(video: UploadFile = File(...), source_language: str = Form("ISL"), target_language: str = Form("English"), task: str = Form("sentence")):
-    if not MODEL_API_URL:
-        raise HTTPException(status_code=503, detail="No continuous-sign translation endpoint is configured. Set MODEL_API_URL in server/.env.")
-    raw = await video.read()
-    if not raw: raise HTTPException(status_code=400, detail="Empty video clip.")
-    if len(raw) > MAX_CLIP_BYTES: raise HTTPException(status_code=413, detail=f"Clip exceeds {MAX_CLIP_BYTES} bytes.")
-    headers = {"Authorization": f"Bearer {MODEL_API_KEY}"} if MODEL_API_KEY else {}
-    files = {"video": (video.filename or "clip.webm", raw, video.content_type or "video/webm")}
-    data = {"source_language":source_language,"target_language":target_language,"task":task}
+async def translate(request: TranslationRequest):
+    model_url = os.getenv("MODEL_API_URL")
+    model_key = os.getenv("MODEL_API_KEY")
+
+    if not model_url:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Sign recognition model is not connected yet. "
+                "Configure MODEL_API_URL after deploying a compatible trained model."
+            ),
+        )
+
+    headers = {}
+    if model_key:
+        headers["Authorization"] = f"Bearer {model_key}"
+
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(MODEL_API_URL, headers=headers, files=files, data=data)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Could not reach model endpoint: {type(exc).__name__}")
-    if response.status_code >= 400: raise HTTPException(status_code=502, detail=f"Model endpoint returned HTTP {response.status_code}.")
-    try: payload = response.json()
-    except ValueError: raise HTTPException(status_code=502, detail="Model endpoint must return JSON.")
-    if not isinstance(payload,dict) or not payload.get("translation"):
-        raise HTTPException(status_code=502, detail="Model endpoint must return a JSON object with a translation field.")
-    return {"translation":payload.get("translation"),"confidence":payload.get("confidence"),"detected_language":payload.get("detected_language"),"language_confidence":payload.get("language_confidence"),"note":payload.get("note","Prediction is not guaranteed to be accurate.")}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            result = await client.post(
+                model_url,
+                json={
+                    "language": request.language,
+                    "frames": request.frames,
+                },
+                headers=headers,
+            )
+            result.raise_for_status()
+            data: Any = result.json()
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="The sign recognition model could not process this sequence."
+        )
+
+    if not isinstance(data, dict) or not isinstance(
+        data.get("translation"), str
+    ):
+        raise HTTPException(
+            status_code=502,
+            detail="The model must return JSON with a string 'translation' field."
+        )
+
+    return {
+        "translation": data["translation"],
+        "language": data.get("language", request.language),
+    }
+
+
+@app.get("/")
+async def home():
+    index_file = PUBLIC_DIR / "index.html"
+    if not index_file.is_file():
+        raise HTTPException(status_code=404, detail="Website file not found")
+    return FileResponse(index_file)
+
+
+if PUBLIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")
