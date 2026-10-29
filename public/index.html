@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SignBridge — Sign Language Communication</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <style>
+    :root {
+      font-family: system-ui, Arial, sans-serif;
+      color: #172033;
+      background: #f3f6fb;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header {
+      background: #123a68; color: white; padding: 22px 5%;
+    }
+    header h1 { margin: 0 0 5px; }
+    header p { margin: 0; opacity: .9; }
+    main {
+      width: min(1100px, 94%); margin: 24px auto;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 20px;
+    }
+    section {
+      background: white; border-radius: 16px; padding: 20px;
+      box-shadow: 0 5px 22px #182e4c12;
+    }
+    h2 { margin-top: 0; }
+    video {
+      display: block; width: 100%; background: #101827;
+      border-radius: 12px; transform: scaleX(-1);
+    }
+    button, select, input {
+      width: 100%; padding: 12px; margin-top: 10px;
+      border-radius: 9px; border: 1px solid #cbd5e1; font: inherit;
+    }
+    button {
+      background: #1459a6; color: white; border: 0;
+      font-weight: 650; cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    .secondary { background: #e8f0fb; color: #123a68; }
+    .status { color: #526179; font-size: .92rem; }
+    .output {
+      min-height: 90px; padding: 14px; margin-top: 12px;
+      border-radius: 10px; background: #f0f5fb; white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    #messages { height: 240px; overflow-y: auto; }
+    .message { padding: 9px 11px; margin: 8px 0; border-radius: 9px; }
+    .user { background: #e2efff; }
+    .bot { background: #edf7ef; }
+    .chatrow { display: flex; gap: 8px; }
+    .chatrow input { flex: 1; min-width: 0; }
+    .chatrow button { width: 100px; }
+    footer { text-align: center; padding: 20px; color: #64748b; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>SignBridge</h1>
+  <p>Accessible communication, powered by AI</p>
+</header>
+
+<main>
+  <section>
+    <h2>Live sign camera</h2>
+    <p class="status">Allow camera access, then sign in view of the camera.</p>
+    <label for="language">Sign language for recognition</label>
+    <select id="language">
+      <option value="auto">Auto / model decides</option>
+      <option value="ASL">American Sign Language (ASL)</option>
+      <option value="ISL">Indian Sign Language (ISL)</option>
+      <option value="BSL">British Sign Language (BSL)</option>
+      <option value="DGS">German Sign Language (DGS)</option>
+      <option value="GSL">Greek Sign Language (GSL)</option>
+    </select>
+    <video id="camera" playsinline></video>
+    <button id="start">Start camera</button>
+    <button id="stop" class="secondary" disabled>Stop camera</button>
+    <p id="cameraStatus" class="status" role="status">Camera is off.</p>
+    <h3>Recognized text</h3>
+    <div id="transcript" class="output" aria-live="polite">Your translation will appear here when a trained recognition model is connected.</div>
+    <button id="speak" class="secondary">Speak latest translation</button>
+  </section>
+
+  <section>
+    <h2>AI communication assistant</h2>
+    <p class="status">Ask questions about sign languages, accessibility, or communication.</p>
+    <label for="replyLanguage">Assistant reply language</label>
+    <select id="replyLanguage">
+      <option>English</option>
+      <option>Hindi</option>
+      <option>Tamil</option>
+      <option>Telugu</option>
+      <option>Kannada</option>
+      <option>Malayalam</option>
+      <option>Spanish</option>
+      <option>French</option>
+      <option>German</option>
+    </select>
+    <div id="messages" class="output" aria-live="polite"></div>
+    <form id="chatForm">
+      <label for="chatInput">Your message</label>
+      <div class="chatrow">
+        <input id="chatInput" maxlength="4000" required placeholder="Type a message…">
+        <button id="send" type="submit">Send</button>
+      </div>
+    </form>
+    <p id="chatStatus" class="status" role="status"></p>
+  </section>
+</main>
+<footer>SignBridge · Designed for accessible communication</footer>
+
+<script>
+  const API = ""; // Same Render service serves this page and its API.
+  const video = document.getElementById("camera");
+  const cameraStatus = document.getElementById("cameraStatus");
+  const transcript = document.getElementById("transcript");
+  const startButton = document.getElementById("start");
+  const stopButton = document.getElementById("stop");
+  let camera = null;
+  let hands = null;
+  let running = false;
+  let frames = [];
+  let lastSent = 0;
+  let latestTranslation = "";
+
+  async function postJSON(path, body) {
+    const response = await fetch(API + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.detail || "Request failed (" + response.status + ")");
+    }
+    return data;
+  }
+
+  function showTranslation(text) {
+    latestTranslation = text;
+    transcript.textContent = text || "No sign recognized yet.";
+  }
+
+  async function sendSequence() {
+    if (!running || frames.length < 8 || Date.now() - lastSent < 2500) return;
+    lastSent = Date.now();
+    const sequence = frames.slice(-30);
+    try {
+      const data = await postJSON("/api/translate", {
+        language: document.getElementById("language").value,
+        frames: sequence
+      });
+      if (data.translation) showTranslation(data.translation);
+      cameraStatus.textContent = "Recognition model connected.";
+    } catch (error) {
+      cameraStatus.textContent = error.message;
+    }
+  }
+
+  async function startCamera() {
+    startButton.disabled = true;
+    cameraStatus.textContent = "Requesting camera permission…";
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access requires HTTPS and a supported browser.");
+      }
+      if (!window.Hands || !window.Camera) {
+        throw new Error("Hand tracking library did not load. Check your internet connection.");
+      }
+
+      hands = new Hands({
+        locateFile: file => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+      });
+
+      hands.onResults(results => {
+        if (!running) return;
+        const found = results.multiHandLandmarks || [];
+        if (!found.length) return;
+
+        // Each frame contains normalized landmark x, y, z values.
+        // A trained model must use this same input format to interpret it.
+        const values = found.flatMap(hand =>
+          hand.flatMap(point => [point.x, point.y, point.z])
+        );
+        frames.push(values);
+        if (frames.length > 120) frames = frames.slice(-120);
+        sendSequence();
+      });
+
+      camera = new Camera(video, {
+        onFrame: async () => {
+          if (running && video.readyState >= 2) await hands.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+
+      running = true;
+      await camera.start();
+      startButton.disabled = true;
+      stopButton.disabled = false;
+      cameraStatus.textContent =
+        "Camera running. Hand tracking collects movement; translation needs a compatible trained model.";
+    } catch (error) {
+      running = false;
+      startButton.disabled = false;
+      cameraStatus.textContent = error.message;
+    }
+  }
+
+  function stopCamera() {
+    running = false;
+    if (camera && camera.stop) camera.stop();
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+    if (hands) hands.close();
+    camera = null;
+    hands = null;
+    frames = [];
+    startButton.disabled = false;
+    stopButton.disabled = true;
+    cameraStatus.textContent = "Camera is off.";
+  }
+
+  startButton.addEventListener("click", startCamera);
+  stopButton.addEventListener("click", stopCamera);
+
+  document.getElementById("speak").addEventListener("click", () => {
+    if (!latestTranslation || !("speechSynthesis" in window)) {
+      cameraStatus.textContent = "No translation to speak yet, or speech is unavailable.";
+      return;
+    }
+    speechSynthesis.cancel();
+    speechSynthesis.speak(new SpeechSynthesisUtterance(latestTranslation));
+  });
+
+  const messages = document.getElementById("messages");
+  function addMessage(text, who) {
+    const item = document.createElement("div");
+    item.className = "message " + who;
+    item.textContent = text;
+    messages.appendChild(item);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  document.getElementById("chatForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("chatInput");
+    const send = document.getElementById("send");
+    const status = document.getElementById("chatStatus");
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage("You: " + message, "user");
+    input.value = "";
+    send.disabled = true;
+    status.textContent = "Assistant is replying…";
+
+    try {
+      const data = await postJSON("/api/chat", {
+        message,
+        language: document.getElementById("replyLanguage").value
+      });
+      addMessage("SignBridge: " + data.reply, "bot");
+      status.textContent = "";
+    } catch (error) {
+      addMessage("SignBridge: " + error.message, "bot");
+      status.textContent = "Check your Render environment settings if this continues.";
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>
+
