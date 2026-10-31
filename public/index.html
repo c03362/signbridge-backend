@@ -2,227 +2,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#102744">
-  <title>SignBridge | Accessible Communication</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101d35">
+<title>SignBridge — AI Communication</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
-  <!-- MediaPipe hand landmark detection -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-
-  <style>
-    :root {
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #172338;
-      background: #f2f5fa;
-      font-synthesis: none;
-    }
-
-    * { box-sizing: border-box; }
-
-    body { margin: 0; min-height: 100vh; }
-
-    header {
-      background: #102744;
-      color: white;
-      padding: 20px max(5%, calc((100% - 1150px) / 2));
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .brand-icon {
-      width: 45px; height: 45px; border-radius: 14px;
-      background: #c9f1df; color: #102744;
-      display: grid; place-items: center; font-size: 25px;
-    }
-    header h1 { font-size: 1.35rem; margin: 0; }
-    header p { margin: 4px 0 0; color: #d2dfef; font-size: .9rem; }
-
-    .status-pill {
-      border: 1px solid #526c88; border-radius: 999px;
-      padding: 7px 12px; font-size: .8rem;
-    }
-
-    main { width: min(1150px, 92%); margin: 28px auto; }
-
-    .intro { margin-bottom: 22px; }
-    .intro h2 { font-size: clamp(1.5rem, 4vw, 2rem); margin: 0 0 8px; }
-    .intro p { color: #607087; margin: 0; line-height: 1.6; }
-
-    .layout {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 22px;
-      align-items: start;
-    }
-
-    .card {
-      background: white; border: 1px solid #e1e7f0;
-      border-radius: 18px; padding: 21px;
-      box-shadow: 0 6px 22px #122a4610;
-      min-width: 0;
-    }
-
-    .card h3 { margin: 0 0 8px; font-size: 1.15rem; }
-    .subtext { color: #64748b; font-size: .9rem; line-height: 1.5; }
-
-    label {
-      display: block; margin: 17px 0 7px;
-      font-size: .88rem; font-weight: 650;
-    }
-
-    select, input, textarea, button {
-      font: inherit; border-radius: 10px; width: 100%;
-    }
-
-    select, input, textarea {
-      border: 1px solid #d2dbe8; background: white;
-      padding: 12px; color: #172338;
-    }
-
-    button {
-      border: 0; background: #1759a5; color: white;
-      padding: 12px 14px; font-weight: 650; cursor: pointer;
-      transition: opacity .15s;
-    }
-
-    button:hover { opacity: .9; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    button.secondary { background: #eaf1fa; color: #174b83; }
-    button.danger { background: #fff0f0; color: #a42a35; }
-
-    .video-wrap {
-      margin-top: 14px; overflow: hidden; position: relative;
-      background: #0d1828; border-radius: 13px;
-      min-height: 210px; aspect-ratio: 4 / 3;
-    }
-
-    video, canvas {
-      width: 100%; height: 100%; object-fit: cover;
-      position: absolute; inset: 0;
-    }
-
-    video { transform: scaleX(-1); }
-    canvas { pointer-events: none; }
-
-    .camera-placeholder {
-      position: absolute; inset: 0; display: grid;
-      place-content: center; text-align: center; color: #cbd5e1;
-      padding: 24px; gap: 8px;
-    }
-
-    .camera-placeholder .hand { font-size: 2.2rem; }
-    .camera-placeholder p { margin: 0; font-size: .9rem; }
-
-    .actions {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-      margin-top: 12px;
-    }
-
-    .status-text {
-      min-height: 22px; margin: 12px 0 0;
-      font-size: .86rem; color: #5c6d82; line-height: 1.5;
-      overflow-wrap: anywhere;
-    }
-
-    .output {
-      background: #f2f6fb; border: 1px solid #e3eaf3;
-      border-radius: 12px; padding: 14px; min-height: 95px;
-      margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere;
-      line-height: 1.6;
-    }
-
-    .output-label {
-      margin-top: 18px; font-weight: 700; font-size: .9rem;
-    }
-
-    .notice {
-      margin-top: 13px; border-radius: 10px; padding: 11px;
-      background: #fff8e8; color: #79531b;
-      font-size: .84rem; line-height: 1.5;
-    }
-
-    #messages {
-      height: 290px; overflow-y: auto; display: flex;
-      flex-direction: column; gap: 10px; padding: 12px;
-    }
-
-    .bubble {
-      max-width: 92%; padding: 10px 12px;
-      border-radius: 12px; line-height: 1.5;
-      font-size: .91rem; white-space: pre-wrap; overflow-wrap: anywhere;
-    }
-
-    .bubble.user {
-      background: #dcecff; align-self: flex-end;
-      border-bottom-right-radius: 4px;
-    }
-
-    .bubble.bot {
-      background: #e9f6ee; align-self: flex-start;
-      border-bottom-left-radius: 4px;
-    }
-
-    .bubble.error { background: #fff0f0; color: #8c2930; }
-
-    .chat-form {
-      display: grid; grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px; margin-top: 12px;
-    }
-
-    .chat-form input { min-width: 0; }
-    .chat-form button { width: auto; }
-
-    footer {
-      text-align: center; color: #697a90;
-      padding: 20px 12px 30px; font-size: .85rem;
-    }
-
-    @media (max-width: 760px) {
-      .layout { grid-template-columns: 1fr; }
-      main { width: 94%; margin-top: 20px; }
-      .card { padding: 16px; }
-      header { padding: 16px 4%; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      * { transition: none !important; }
-    }
-  </style>
+<style>
+:root {
+  --navy:#101d35; --blue:#4778ef; --mint:#b8f2d5;
+  --bg:#f4f6fb; --ink:#19243a; --muted:#718096;
+  --line:#e5eaf2; --white:#fff;
+}
+* {box-sizing:border-box}
+body {margin:0;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select {font:inherit}
+button {cursor:pointer}
+.topbar {
+  background:var(--navy);color:white;padding:17px max(4%,calc((100% - 1250px)/2));
+  display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap
+}
+.brand {display:flex;align-items:center;gap:12px}
+.logo {width:43px;height:43px;border-radius:14px;background:var(--mint);
+  color:var(--navy);display:grid;place-items:center;font-size:24px}
+.brand h1 {font-size:21px;margin:0}
+.brand p {font-size:12px;color:#c4d0e3;margin:3px 0 0}
+.pill {border:1px solid #50617d;padding:8px 12px;border-radius:30px;
+  font-size:12px;color:#dce8f7}
+main {max-width:1250px;width:93%;margin:32px auto}
+.hero {display:flex;justify-content:space-between;align-items:end;gap:20px;
+  flex-wrap:wrap;margin-bottom:24px}
+.hero h2 {font-size:clamp(27px,4vw,38px);letter-spacing:-1px;margin:0 0 8px}
+.hero p {margin:0;color:var(--muted);line-height:1.6}
+.tag {background:#e4f7ed;color:#216346;padding:8px 12px;border-radius:30px;
+  font-size:12px;font-weight:700}
+.grid {display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:start}
+.card {background:white;border:1px solid var(--line);border-radius:20px;
+  padding:22px;box-shadow:0 8px 28px #1d31500a;min-width:0}
+.card-head {display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card h3 {margin:0;font-size:19px}
+.card-desc {color:var(--muted);font-size:13px;line-height:1.55;margin:8px 0 17px}
+.label {display:block;font-size:12px;font-weight:750;margin:15px 0 7px}
+select,input {width:100%;border:1px solid var(--line);border-radius:11px;
+  padding:12px;background:white;color:var(--ink);outline:none}
+select:focus,input:focus {border-color:var(--blue)}
+.video-wrap {margin-top:14px;position:relative;aspect-ratio:4/3;
+  background:#101827;border-radius:15px;overflow:hidden}
+video {width:100%;height:100%;object-fit:cover;position:absolute;inset:0;
+  transform:scaleX(-1)}
+canvas {position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.placeholder {position:absolute;inset:0;display:grid;place-content:center;
+  text-align:center;color:#dce6f4;padding:20px;gap:8px}
+.placeholder span {font-size:45px}
+.placeholder p {margin:0;font-size:13px}
+.actions {display:flex;gap:9px;margin-top:12px}
+.btn {border:0;border-radius:11px;padding:12px 15px;font-weight:700;
+  background:var(--blue);color:white}
+.btn.secondary {background:#edf2ff;color:#3458a5}
+.btn.dark {background:var(--navy);color:white}
+.btn:disabled {opacity:.45;cursor:not-allowed}
+.actions .btn {flex:1}
+.status {font-size:12px;line-height:1.5;color:var(--muted);margin:12px 0}
+.status.good {color:#178451}
+.status.warn {color:#a56a18}
+.result {background:#f4f7fc;border:1px solid var(--line);border-radius:13px;
+  min-height:85px;padding:15px;line-height:1.6;font-size:14px;
+  overflow-wrap:anywhere;white-space:pre-wrap}
+.result-title {font-size:12px;font-weight:800;margin:18px 0 8px}
+.notice {background:#fff8e9;color:#815d1b;border-radius:11px;
+  padding:12px;font-size:12px;line-height:1.6;margin-top:14px}
+.chat-card {display:flex;flex-direction:column}
+.chat-window {height:390px;overflow-y:auto;background:#f7f9fc;
+  border:1px solid var(--line);border-radius:14px;padding:13px;
+  display:flex;flex-direction:column;gap:11px}
+.bubble {max-width:90%;padding:11px 13px;border-radius:14px;
+  font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble.bot {align-self:flex-start;background:#eaf5ef;border-bottom-left-radius:4px}
+.bubble.user {align-self:flex-end;background:#e7efff;border-bottom-right-radius:4px}
+.bubble.error {align-self:flex-start;background:#fff0f0;color:#9c3030}
+.chat-form {display:flex;gap:8px;margin-top:12px}
+.chat-form input {flex:1;min-width:0}
+.chat-form button {border:0;border-radius:11px;padding:0 18px;
+  background:var(--blue);color:white;font-weight:700}
+.chat-status {font-size:12px;color:var(--muted);min-height:18px;margin:8px 0 0}
+.tools {display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tools button {border:1px solid var(--line);border-radius:9px;
+  padding:8px 11px;background:white;color:#40516b;font-size:12px}
+footer {text-align:center;color:var(--muted);font-size:12px;padding:25px}
+@media(max-width:850px) {.grid{grid-template-columns:1fr}}
+@media(max-width:500px) {
+  main{width:94%;margin:20px auto}
+  .card{padding:16px}
+  .chat-window{height:320px}
+  .hero{align-items:start}
+}
+</style>
 </head>
 
 <body>
-<header>
+<header class="topbar">
   <div class="brand">
-    <div class="brand-icon" aria-hidden="true">🤟</div>
+    <div class="logo">🤟</div>
     <div>
       <h1>SignBridge</h1>
-      <p>Bringing communication closer</p>
+      <p>AI-powered accessible communication</p>
     </div>
   </div>
-  <div class="status-pill" id="backendBadge">Checking backend…</div>
+  <div class="pill" id="backendStatus">● Checking connection</div>
 </header>
 
 <main>
-  <div class="intro">
-    <h2>Communication without barriers.</h2>
-    <p>Use your camera to track hand movements, view model translations, or chat with your AI assistant.</p>
+  <div class="hero">
+    <div>
+      <h2>Communication without barriers.</h2>
+      <p>Understand, communicate and connect through accessible AI technology.</p>
+    </div>
+    <div class="tag">ACCESSIBILITY FIRST</div>
   </div>
 
-  <div class="layout">
+  <div class="grid">
+    <!-- SIGN RECOGNITION -->
     <section class="card">
-      <h3>Live sign-language camera</h3>
-      <p class="subtext">Allow camera permission when prompted. Use good lighting and keep your hands in view.</p>
+      <div class="card-head">
+        <h3>Live sign recognition</h3>
+        <span aria-hidden="true">📷</span>
+      </div>
+      <p class="card-desc">
+        Position your hands in the camera view. Hand tracking will capture
+        landmark sequences for the connected recognition model.
+      </p>
 
-      <label for="signLanguage">Sign language</label>
+      <label class="label" for="signLanguage">Sign language</label>
       <select id="signLanguage">
-        <option value="auto">Automatic / model decides</option>
-        <option value="ASL">American Sign Language (ASL)</option>
+        <option value="auto">Automatic</option>
         <option value="ISL">Indian Sign Language (ISL)</option>
+        <option value="ASL">American Sign Language (ASL)</option>
         <option value="BSL">British Sign Language (BSL)</option>
         <option value="DGS">German Sign Language (DGS)</option>
         <option value="GSL">Greek Sign Language (GSL)</option>
@@ -231,40 +146,50 @@
       <div class="video-wrap">
         <video id="camera" autoplay muted playsinline></video>
         <canvas id="overlay"></canvas>
-        <div class="camera-placeholder" id="cameraPlaceholder">
-          <span class="hand">✋</span>
-          <p>Your camera preview will appear here</p>
+        <div class="placeholder" id="placeholder">
+          <span>✋</span>
+          <p>Your live camera preview will appear here</p>
         </div>
       </div>
 
       <div class="actions">
-        <button id="startCamera" type="button">Start camera</button>
-        <button id="stopCamera" class="secondary" type="button" disabled>Stop camera</button>
+        <button class="btn" id="startCamera" type="button">Start camera</button>
+        <button class="btn secondary" id="stopCamera" type="button" disabled>Stop</button>
       </div>
+      <p class="status" id="cameraStatus" role="status" aria-live="polite">
+        Camera is currently off.
+      </p>
 
-      <p id="cameraStatus" class="status-text" role="status" aria-live="polite">Camera is off.</p>
-
-      <div class="output-label">Recognized translation</div>
-      <div class="output" id="translation" aria-live="polite">Your translation will appear here once a compatible trained model is connected.</div>
+      <div class="result-title">TRANSLATION</div>
+      <div class="result" id="translation" aria-live="polite">
+        Your recognized sign-language translation will appear here when a trained model is connected.
+      </div>
       <div class="actions">
-        <button id="speakTranslation" class="secondary" type="button">🔊 Speak text</button>
-        <button id="clearTranslation" class="secondary" type="button">Clear text</button>
+        <button class="btn secondary" id="speak" type="button">🔊 Speak</button>
+        <button class="btn secondary" id="clear" type="button">Clear</button>
       </div>
 
       <div class="notice">
-        Hand tracking detects landmark positions; it does not independently understand a complete sign language. Translation requires a trained recognition model.
+        Recognition requires a trained sign-language AI model. Camera hand
+        tracking alone cannot translate complete signs, grammar or sentences.
       </div>
     </section>
 
-    <section class="card">
-      <h3>AI communication assistant</h3>
-      <p class="subtext">Ask about communication, accessibility, or sign languages. Choose the language for the assistant's reply.</p>
+    <!-- AI ASSISTANT -->
+    <section class="card chat-card">
+      <div class="card-head">
+        <h3>SignBridge AI assistant</h3>
+        <span aria-hidden="true">✦</span>
+      </div>
+      <p class="card-desc">
+        Ask questions, get explanations and communicate with the AI assistant.
+      </p>
 
-      <label for="replyLanguage">Assistant reply language</label>
+      <label class="label" for="replyLanguage">Assistant response language</label>
       <select id="replyLanguage">
         <option>English</option>
-        <option>Hindi</option>
         <option>Tamil</option>
+        <option>Hindi</option>
         <option>Telugu</option>
         <option>Kannada</option>
         <option>Malayalam</option>
@@ -274,382 +199,372 @@
         <option>German</option>
       </select>
 
-      <div id="messages" class="output" aria-live="polite">
-        <div class="bubble bot">Hello! I'm your SignBridge assistant. How can I help you today?</div>
+      <div class="chat-window" id="chatMessages" aria-live="polite">
+        <div class="bubble bot">
+          Hello! 👋 I'm the SignBridge AI assistant. I can help answer
+          questions about sign languages, accessibility and communication.
+          What would you like to know?
+        </div>
       </div>
 
-      <form id="chatForm">
-        <label for="chatInput">Your message</label>
-        <div class="chat-form">
-          <input id="chatInput" maxlength="4000" placeholder="Type your message…" autocomplete="off" required>
-          <button id="sendMessage" type="submit">Send</button>
-        </div>
+      <form class="chat-form" id="chatForm">
+        <input id="chatInput" maxlength="4000" required
+          placeholder="Write your message…" autocomplete="off">
+        <button id="sendButton" type="submit">Send</button>
       </form>
-      <p class="status-text" id="chatStatus" role="status" aria-live="polite"></p>
+      <p class="chat-status" id="chatStatus" role="status" aria-live="polite"></p>
+
+      <div class="tools">
+        <button type="button" id="clearChat">Clear conversation</button>
+        <button type="button" id="speakReply">🔊 Read latest reply</button>
+      </div>
     </section>
   </div>
 </main>
 
-<footer>SignBridge · Inclusive communication technology</footer>
+<footer>SignBridge · Making communication more accessible</footer>
 
 <script>
 (() => {
   "use strict";
 
-  // The website and API are hosted on the same Render service.
-  const API_BASE = "";
+  // The same Render service hosts the frontend and backend.
+  const API = "";
 
-  const $ = id => document.getElementById(id);
-
-  const video = $("camera");
-  const canvas = $("overlay");
+  const el = id => document.getElementById(id);
+  const video = el("camera");
+  const canvas = el("overlay");
   const ctx = canvas.getContext("2d");
-  const placeholder = $("cameraPlaceholder");
-  const cameraStatus = $("cameraStatus");
-  const startButton = $("startCamera");
-  const stopButton = $("stopCamera");
-  const translationBox = $("translation");
-  const backendBadge = $("backendBadge");
 
   let stream = null;
-  let hands = null;
-  let running = false;
+  let tracker = null;
+  let active = false;
+  let generation = 0;
+  let sequence = [];
+  let lastSent = 0;
   let sending = false;
-  let frameSequence = [];
-  let lastRequestTime = 0;
   let latestTranslation = "";
-  let handTrackingReady = false;
-  let cameraGeneration = 0;
+  let latestReply = "";
+  let trackingLoopRunning = false;
 
-  function setCameraStatus(message) {
-    cameraStatus.textContent = message;
-  }
-
-  async function postJSON(path, body) {
-    const response = await fetch(API_BASE + path, {
+  async function apiPost(path, payload) {
+    const response = await fetch(API + path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
-      throw new Error(
-        typeof data.detail === "string"
-          ? data.detail
-          : `Server returned HTTP ${response.status}`
-      );
+      throw new Error(data.detail || `Request failed (${response.status})`);
     }
     return data;
   }
 
   async function checkBackend() {
+    const badge = el("backendStatus");
     try {
-      const response = await fetch("/api/health", { cache: "no-store" });
-      if (!response.ok) throw new Error("Backend returned HTTP " + response.status);
+      const response = await fetch("/api/health", {cache: "no-store"});
+      if (!response.ok) throw new Error("Backend unavailable");
       const data = await response.json();
 
-      backendBadge.textContent = data.status === "ok"
-        ? "● Backend online"
-        : "Backend status unknown";
+      badge.textContent = data.status === "ok"
+        ? "● AI backend online"
+        : "● Backend issue";
 
-      backendBadge.style.color = data.status === "ok" ? "#c9f1df" : "#ffd4a3";
-      backendBadge.title = data.translation_configured
-        ? "Translation model configured"
-        : "Translation model not configured";
+      badge.style.color = data.status === "ok" ? "#b8f2d5" : "#ffd2a5";
+
+      if (!data.chat_configured) {
+        el("chatStatus").textContent = "Chatbot API key is not configured.";
+      }
     } catch (error) {
-      backendBadge.textContent = "● Backend unavailable";
-      backendBadge.style.color = "#ffd4a3";
+      badge.textContent = "● Backend offline";
+      badge.style.color = "#ffd2a5";
     }
   }
 
-  function setTranslation(text) {
-    latestTranslation = text || "";
-    translationBox.textContent = latestTranslation || "No translation available yet.";
-  }
+  // Draw a hand skeleton over the video.
+  function drawHands(results) {
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
 
-  // Draw detected landmarks over the video without relying on extra
-  // MediaPipe drawing utility scripts.
-  function drawLandmarks(results) {
-    const width = video.videoWidth || 640;
-    const height = video.videoHeight || 480;
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
     }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, w, h);
 
-    const allHands = results.multiHandLandmarks || [];
+    const connections = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [5,9],[9,10],[10,11],[11,12],
+      [9,13],[13,14],[14,15],[15,16],
+      [13,17],[17,18],[18,19],[19,20],[0,17]
+    ];
 
-    for (const landmarks of allHands) {
-      ctx.strokeStyle = "#7df2c0";
-      ctx.lineWidth = 3;
+    for (const hand of results.multiHandLandmarks || []) {
+      ctx.strokeStyle = "#65efb0";
       ctx.fillStyle = "#ffffff";
+      ctx.lineWidth = 3;
 
-      const connections = [
-        [0,1],[1,2],[2,3],[3,4],
-        [0,5],[5,6],[6,7],[7,8],
-        [5,9],[9,10],[10,11],[11,12],
-        [9,13],[13,14],[14,15],[15,16],
-        [13,17],[17,18],[18,19],[19,20],
-        [0,17]
-      ];
-
-      for (const [a, b] of connections) {
-        const p = landmarks[a], q = landmarks[b];
+      for (const [a,b] of connections) {
         ctx.beginPath();
-        ctx.moveTo(p.x * width, p.y * height);
-        ctx.lineTo(q.x * width, q.y * height);
+        ctx.moveTo(hand[a].x * w, hand[a].y * h);
+        ctx.lineTo(hand[b].x * w, hand[b].y * h);
         ctx.stroke();
       }
 
-      for (const point of landmarks) {
+      for (const point of hand) {
         ctx.beginPath();
-        ctx.arc(point.x * width, point.y * height, 3, 0, Math.PI * 2);
+        ctx.arc(point.x * w, point.y * h, 3, 0, Math.PI * 2);
         ctx.fill();
       }
     }
   }
 
-  async function processResults(results, generation) {
-    if (!running || generation !== cameraGeneration) return;
+  // Produce a fixed-size vector: 2 hands × 21 landmarks × 3 coordinates.
+  // The recognition model must be trained to accept this representation.
+  function makeFrame(results) {
+    const hands = results.multiHandLandmarks || [];
+    const frame = [];
 
-    drawLandmarks(results);
-
-    const detectedHands = results.multiHandLandmarks || [];
-    if (detectedHands.length === 0) return;
-
-    // This feature vector is an example input format. A deployed model
-    // must have been trained to accept the same landmark representation.
-    const values = detectedHands.flatMap(hand =>
-      hand.flatMap(point => [point.x, point.y, point.z])
-    );
-
-    frameSequence.push(values);
-    if (frameSequence.length > 60) frameSequence.shift();
-
-    if (!handTrackingReady) {
-      handTrackingReady = true;
-      setCameraStatus("Camera is running. Hand landmarks detected.");
+    for (let i = 0; i < 2; i++) {
+      const hand = hands[i];
+      for (let j = 0; j < 21; j++) {
+        const point = hand && hand[j];
+        frame.push(
+          point ? point.x : 0,
+          point ? point.y : 0,
+          point ? point.z : 0
+        );
+      }
     }
+    return frame;
+  }
 
-    // Throttle API requests so that the backend is not flooded.
-    if (frameSequence.length >= 8 &&
-        Date.now() - lastRequestTime >= 2500 &&
+  async function onHandResults(results, myGeneration) {
+    if (!active || myGeneration !== generation) return;
+
+    drawHands(results);
+
+    const detected = results.multiHandLandmarks || [];
+    if (!detected.length) return;
+
+    sequence.push(makeFrame(results));
+    if (sequence.length > 60) sequence.shift();
+
+    el("cameraStatus").textContent =
+      `Camera active · ${detected.length} hand(s) detected · ${sequence.length} frames captured`;
+
+    if (sequence.length >= 12 &&
+        Date.now() - lastSent >= 2500 &&
         !sending) {
-      await requestTranslation(generation);
+      await sendTranslation(myGeneration);
     }
   }
 
-  async function requestTranslation(generation) {
-    if (!running || sending || generation !== cameraGeneration) return;
+  async function sendTranslation(myGeneration) {
+    if (!active || sending || myGeneration !== generation) return;
 
     sending = true;
-    lastRequestTime = Date.now();
+    lastSent = Date.now();
 
     try {
-      const data = await postJSON("/api/translate", {
-        language: $("signLanguage").value,
-        frames: frameSequence.slice(-30)
+      const result = await apiPost("/api/translate", {
+        language: el("signLanguage").value,
+        frames: sequence.slice(-30)
       });
 
-      if (generation !== cameraGeneration) return;
+      if (myGeneration !== generation) return;
 
-      if (typeof data.translation === "string" && data.translation.trim()) {
-        setTranslation(data.translation.trim());
+      if (typeof result.translation === "string" && result.translation.trim()) {
+        latestTranslation = result.translation.trim();
+        el("translation").textContent = latestTranslation;
       }
-      setCameraStatus("Camera running. Recognition model responded.");
+      el("cameraStatus").textContent = "Recognition model responded successfully.";
     } catch (error) {
-      if (generation !== cameraGeneration) return;
+      if (myGeneration !== generation) return;
 
-      // 503 is expected while no trained recognition model is configured.
       if (error.message.toLowerCase().includes("model is not connected")) {
-        setCameraStatus("Camera works; sign recognition model is not connected yet.");
+        el("cameraStatus").textContent =
+          "Hand tracking works. A trained recognition model still needs to be connected.";
       } else {
-        setCameraStatus("Camera works, but translation failed: " + error.message);
+        el("cameraStatus").textContent = "Translation error: " + error.message;
       }
     } finally {
       sending = false;
     }
   }
 
+  async function trackingLoop(myGeneration) {
+    if (trackingLoopRunning) return;
+    trackingLoopRunning = true;
+
+    try {
+      while (active && myGeneration === generation && tracker) {
+        if (video.readyState >= 2) {
+          try {
+            await tracker.send({image: video});
+          } catch (error) {
+            console.error("Hand tracking:", error);
+            el("cameraStatus").textContent =
+              "Video is active, but hand tracking encountered an error.";
+            break;
+          }
+        }
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+    } finally {
+      trackingLoopRunning = false;
+    }
+  }
+
   async function startCamera() {
-    if (running) return;
+    if (active) return;
 
-    startButton.disabled = true;
-    setCameraStatus("Requesting camera permission…");
+    const start = el("startCamera");
+    const stop = el("stopCamera");
+    const myGeneration = ++generation;
 
-    let localStream = null;
-    const generation = ++cameraGeneration;
+    start.disabled = true;
+    el("cameraStatus").textContent = "Requesting camera permission…";
+
+    let newStream = null;
 
     try {
       if (!window.isSecureContext) {
-        throw new Error("Camera access requires HTTPS. Open your Render HTTPS website URL.");
+        throw new Error("Open SignBridge using its HTTPS Render address.");
       }
 
-      if (!navigator.mediaDevices ||
-          typeof navigator.mediaDevices.getUserMedia !== "function") {
-        throw new Error("This browser does not support camera access. Try current Chrome or Safari.");
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access is unavailable in this browser.");
       }
 
-      // Request the camera directly from the browser. This makes the
-      // preview work independently of MediaPipe and the backend.
-      localStream = await navigator.mediaDevices.getUserMedia({
+      newStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+          width: {ideal: 640},
+          height: {ideal: 480}
         }
       });
 
-      if (generation !== cameraGeneration) {
-        localStream.getTracks().forEach(track => track.stop());
+      if (myGeneration !== generation) {
+        newStream.getTracks().forEach(t => t.stop());
         return;
       }
 
-      stream = localStream;
+      stream = newStream;
       video.srcObject = stream;
       video.muted = true;
-      video.playsInline = true;
       await video.play();
 
-      running = true;
-      placeholder.style.display = "none";
-      startButton.disabled = true;
-      stopButton.disabled = false;
-      setCameraStatus("Camera preview is active. Loading hand tracking…");
+      active = true;
+      el("placeholder").style.display = "none";
+      stop.disabled = false;
+      el("cameraStatus").textContent = "Camera active. Loading AI hand tracking…";
 
-      // The camera remains useful even if the optional hand-tracking
-      // CDN library fails to load.
       if (typeof window.Hands !== "function") {
-        setCameraStatus("Camera preview works, but hand tracking did not load. Check your internet connection.");
+        el("cameraStatus").textContent =
+          "Camera is working, but the hand-tracking library did not load. Check your connection.";
         return;
       }
 
-      hands = new window.Hands({
+      tracker = new window.Hands({
         locateFile: file =>
           "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
       });
 
-      hands.setOptions({
+      tracker.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.6
+        minDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.65
       });
 
-      hands.onResults(results => {
-        processResults(results, generation).catch(error => {
-          console.error("Hand tracking error:", error);
-        });
+      tracker.onResults(results => {
+        onHandResults(results, myGeneration).catch(console.error);
       });
 
-      setCameraStatus("Camera running. Initializing hand tracking…");
-      runHandTracking(generation);
+      el("cameraStatus").textContent = "Camera and hand tracking are starting…";
+      trackingLoop(myGeneration);
+
     } catch (error) {
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      if (stream === localStream) stream = null;
+      if (newStream) newStream.getTracks().forEach(t => t.stop());
+      if (stream === newStream) stream = null;
+      active = false;
       video.srcObject = null;
-      running = false;
-      startButton.disabled = false;
-      stopButton.disabled = true;
-      placeholder.style.display = "grid";
-      setCameraStatus("Camera error: " + error.message);
-    }
-  }
-
-  async function runHandTracking(generation) {
-    while (running && generation === cameraGeneration && hands) {
-      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        try {
-          await hands.send({ image: video });
-        } catch (error) {
-          console.error("MediaPipe frame error:", error);
-          setCameraStatus("Camera preview is active; hand tracking encountered an error.");
-          break;
-        }
-      }
-      await new Promise(resolve => requestAnimationFrame(resolve));
+      start.disabled = false;
+      stop.disabled = true;
+      el("placeholder").style.display = "grid";
+      el("cameraStatus").textContent =
+        "Camera error: " + error.name + " — " + error.message;
     }
   }
 
   async function stopCamera() {
-    // Invalidate pending camera callbacks and translation responses.
-    cameraGeneration++;
-    running = false;
-    handTrackingReady = false;
-    frameSequence = [];
+    generation++;
+    active = false;
+    sequence = [];
     sending = false;
 
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(t => t.stop());
       stream = null;
     }
 
     video.srcObject = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    placeholder.style.display = "grid";
+    el("placeholder").style.display = "grid";
 
-    const oldHands = hands;
-    hands = null;
+    const oldTracker = tracker;
+    tracker = null;
 
-    if (oldHands) {
-      try {
-        await oldHands.close();
-      } catch (error) {
-        console.warn("Could not close hand tracker:", error);
-      }
+    if (oldTracker) {
+      try { await oldTracker.close(); }
+      catch (error) { console.warn(error); }
     }
 
-    startButton.disabled = false;
-    stopButton.disabled = true;
-    setCameraStatus("Camera is off.");
+    el("startCamera").disabled = false;
+    el("stopCamera").disabled = true;
+    el("cameraStatus").textContent = "Camera stopped.";
   }
 
-  startButton.addEventListener("click", startCamera);
-  stopButton.addEventListener("click", stopCamera);
+  el("startCamera").addEventListener("click", startCamera);
+  el("stopCamera").addEventListener("click", stopCamera);
 
-  $("clearTranslation").addEventListener("click", () => {
-    setTranslation("");
+  el("clear").addEventListener("click", () => {
+    latestTranslation = "";
+    el("translation").textContent = "Translation cleared.";
   });
 
-  $("speakTranslation").addEventListener("click", () => {
-    if (!latestTranslation.trim()) {
-      setCameraStatus("There is no translation to speak yet.");
+  el("speak").addEventListener("click", () => {
+    if (!latestTranslation) {
+      el("cameraStatus").textContent = "There is no translation to speak yet.";
       return;
     }
-
     if (!("speechSynthesis" in window)) {
-      setCameraStatus("Text-to-speech is not supported in this browser.");
+      el("cameraStatus").textContent = "Speech output is not supported in this browser.";
       return;
     }
-
     speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(latestTranslation);
-    speechSynthesis.speak(utterance);
+    speechSynthesis.speak(new SpeechSynthesisUtterance(latestTranslation));
   });
 
-  // Chat UI
-  const messages = $("messages");
-  const chatForm = $("chatForm");
-  const chatInput = $("chatInput");
-  const sendButton = $("sendMessage");
-  const chatStatus = $("chatStatus");
+  // AI ASSISTANT: uses the existing FastAPI /api/chat endpoint.
+  const chatWindow = el("chatMessages");
+  const chatForm = el("chatForm");
+  const chatInput = el("chatInput");
+  const sendButton = el("sendButton");
 
-  function addBubble(text, type) {
-    const bubble = document.createElement("div");
-    bubble.className = "bubble " + type;
-    bubble.textContent = text;
-    messages.appendChild(bubble);
-    messages.scrollTop = messages.scrollHeight;
-    return bubble;
+  function addMessage(text, type) {
+    const node = document.createElement("div");
+    node.className = "bubble " + type;
+    node.textContent = text;
+    chatWindow.appendChild(node);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    return node;
   }
 
   chatForm.addEventListener("submit", async event => {
@@ -658,31 +573,47 @@
     const message = chatInput.value.trim();
     if (!message) return;
 
-    addBubble("You: " + message, "user");
+    addMessage("You: " + message, "user");
     chatInput.value = "";
     sendButton.disabled = true;
-    chatStatus.textContent = "Waiting for assistant…";
+    el("chatStatus").textContent = "SignBridge AI is thinking…";
 
     try {
-      const data = await postJSON("/api/chat", {
+      const data = await apiPost("/api/chat", {
         message,
-        language: $("replyLanguage").value
+        language: el("replyLanguage").value
       });
 
-      addBubble("SignBridge: " + (data.reply || "No reply received."), "bot");
-      chatStatus.textContent = "";
+      latestReply = data.reply || "";
+      addMessage("SignBridge AI: " + latestReply, "bot");
+      el("chatStatus").textContent = "Reply received.";
     } catch (error) {
-      addBubble("Unable to get a reply: " + error.message, "error");
-      chatStatus.textContent = "Check the backend status and Render logs if this continues.";
+      addMessage("Assistant error: " + error.message, "error");
+      el("chatStatus").textContent = "Please check your backend configuration.";
     } finally {
       sendButton.disabled = false;
       chatInput.focus();
     }
   });
 
-  // Check API status on page load.
+  el("clearChat").addEventListener("click", () => {
+    chatWindow.replaceChildren();
+    latestReply = "";
+    addMessage("Conversation cleared. How can I help you?", "bot");
+  });
+
+  el("speakReply").addEventListener("click", () => {
+    if (!latestReply) {
+      el("chatStatus").textContent = "There is no assistant reply to read yet.";
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(new SpeechSynthesisUtterance(latestReply));
+  });
+
   checkBackend();
-  setInterval(checkBackend, 30000);
+  window.setInterval(checkBackend, 30000);
 })();
 </script>
 </body>
